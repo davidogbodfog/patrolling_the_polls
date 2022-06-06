@@ -13,13 +13,6 @@ with open('locales2.csv', 'w',) as csvfile:
             acta_number = str(i).zfill(6)
             with open("/Users/mollie/Dropbox/personeros2018/"+acta_number+".json", 'r') as f:
                 results = json.loads(f.read())
-
-                #print(json.dumps(results, indent=4))
-                #print(results.keys())
-                #for k in results.keys():
-                   # print("===")
-                 #   print(k)
-                  #  print(results[k])
                 obj = results["procesos"]["regional"]["gobernador"]
                 code = obj["CCODI_UBIGEO"]
                 locale = obj["TNOMB_LOCAL"]
