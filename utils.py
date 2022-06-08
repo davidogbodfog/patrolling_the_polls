@@ -8,16 +8,19 @@ import time
 import os
 
 
-def peru_pull_pdfs(url, acta_range, destination_folder):
+def peru_pull_pdfs(url, acta_range, destination_folder, overwrite=False):
     # driver = webdriver.Chrome()
     driver = webdriver.Firefox()
     driver.implicitly_wait(2)
 
     for i in acta_range:
+        acta_number = str(i).zfill(6)
+        outfile = destination_folder+"/"+acta_number+".pdf"
+        if not overwrite and os.path.exists(outfile):
+            continue
         try:
             print ("getting pdf for acta number:", i)
             driver.get(url)
-            acta_number = str(i).zfill(6)
             print (acta_number)
 
             elem = driver.find_element_by_xpath("/html/body/onpe-root/onpe-layout-container/onpe-onpe-actas-nume/form/div/div[2]/div/div/div/form/div/input")
@@ -29,7 +32,7 @@ def peru_pull_pdfs(url, acta_range, destination_folder):
             pdf_elem = driver.find_element_by_xpath("/html/body/onpe-root/onpe-layout-container/onpe-onpe-actas-nume/form/div/div[3]/div[1]/div/div[2]/div/a")
             pdf_url = pdf_elem.get_attribute("href")
             print("pdf url:", pdf_url)
-            os.system("curl -o "+destination_folder+"/"+acta_number+".pdf \""+pdf_url +"\"")
+            os.system("curl -o "+outfile+" \""+pdf_url +"\"")
 
         except:
             continue
@@ -37,19 +40,27 @@ def peru_pull_pdfs(url, acta_range, destination_folder):
     driver.close()
 
 
-def peru_pull_json(url, acta_range, destination_folder):
+def peru_pull_json(url, acta_range, destination_folder, overwrite=False, website_version="2021"):
     for acta_number in acta_range:
+        acta_number = str(acta_number).zfill(6)
+        outfile = f"{destination_folder}/{acta_number}.json"
+        if not overwrite and os.path.exists(outfile):
+            continue
         try:
-            acta_number = str(acta_number).zfill(6)
-            json_url = "https://www.resultadossep.eleccionesgenerales2021.pe/SEP2021/Actas/Numero/"+acta_number
-            os.system("curl -o "+destination_folder+"/"+acta_number+".json "+json_url)
+            if website_version == "2021":
+                json_url = url+"/"+acta_number+".json"
+            elif website_version == "2018":
+                json_url = url+"/"+acta_number
+            header = "-H 'User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:33.0) Gecko/20100101 Firefox/33.0'"
+            cmd = f"curl {header} -o {outfile} {json_url}"
+            os.system(cmd)
 
         except:
             print(f"exception pulling json {acta_number}")
             continue
 
 
-def peru_dump_acta_data_with_locales(acta_range, destination_file, source_dir):
+def peru_dump_acta_data_with_locales(acta_range, destination_file, source_dir, goodies_path):
     with open(destination_file, 'w',) as csvfile:
         writer = csv.writer(csvfile)
         writer.writerow(['acta_number', 'code', 'locale', 'dept', 'prov', 'dist', 'habiles'])
@@ -57,8 +68,9 @@ def peru_dump_acta_data_with_locales(acta_range, destination_file, source_dir):
             try: 
                 acta_number = str(i).zfill(6)
                 with open(source_dir+"//"+acta_number+".json", 'r') as f:
-                    results = json.loads(f.read())
-                    obj = results["procesos"]["regional"]["gobernador"]
+                    obj = json.loads(f.read())
+                    for item in goodies_path:
+                        obj = obj[item]
                     code = obj["CCODI_UBIGEO"]
                     locale = obj["TNOMB_LOCAL"]
                     dept = obj["DEPARTAMENTO"]
@@ -67,11 +79,8 @@ def peru_dump_acta_data_with_locales(acta_range, destination_file, source_dir):
                     habiles = obj["NNUME_HABILM"]
                     writer.writerow([acta_number, code, locale.encode('utf-8'), dept.encode('utf-8'), prov.encode('utf-8'), dist.encode('utf-8'), habiles])
 
-                    print(acta_number)
-                    print(code)
-
-            except:
-                 continue
+            except Exception as e:
+                 print(e)
 
 
 def peru_2018():
