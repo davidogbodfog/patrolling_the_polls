@@ -15,6 +15,7 @@ def peru_pull_pdfs(url, acta_range, destination_folder, overwrite=False):
 
     for i in acta_range:
         acta_number = str(i).zfill(6)
+        print("pulling pdf", acta_number)
         outfile = destination_folder+"/"+acta_number+".pdf"
         if not overwrite and os.path.exists(outfile):
             continue
@@ -43,6 +44,7 @@ def peru_pull_pdfs(url, acta_range, destination_folder, overwrite=False):
 def peru_pull_json(url, acta_range, destination_folder, overwrite=False, website_version="2021"):
     for acta_number in acta_range:
         acta_number = str(acta_number).zfill(6)
+        print("pulling json", acta_number)
         outfile = f"{destination_folder}/{acta_number}.json"
         if not overwrite and os.path.exists(outfile):
             continue
@@ -60,49 +62,61 @@ def peru_pull_json(url, acta_range, destination_folder, overwrite=False, website
             continue
 
 
-def peru_dump_acta_data_with_locales(acta_range, destination_file, source_dir, goodies_path):
+def peru_dump_locales(acta_range, destination_file, source_dir, election):
     with open(destination_file, 'w',) as csvfile:
-        writer = csv.writer(csvfile)
-        writer.writerow(['acta_number', 'code', 'locale', 'dept', 'prov', 'dist', 'habiles'])
+        locales_writer = csv.writer(csvfile)
+        locales_writer.writerow(['acta_number', 'code', 'locale', 'dept', 'prov', 'dist', 'habiles'])
+        
         for i in acta_range:
+            acta_number = str(i).zfill(6)
             try: 
-                acta_number = str(i).zfill(6)
                 with open(source_dir+"//"+acta_number+".json", 'r') as f:
-                    obj = json.loads(f.read())
-                    for item in goodies_path:
-                        obj = obj[item]
+                    base_obj = json.loads(f.read())
+                    if election == "president":
+                        obj = base_obj["procesos"]["generalPre"]["presidencial"]
+                    elif election == "regional":
+                        obj = base_obj["procesos"]["regional"]["gobernador"]
+                        
                     code = obj["CCODI_UBIGEO"]
                     locale = obj["TNOMB_LOCAL"]
                     dept = obj["DEPARTAMENTO"]
                     prov = obj["PROVINCIA"]
                     dist = obj["DISTRITO"]
                     habiles = obj["NNUME_HABILM"]
-                    writer.writerow([acta_number, code, locale.encode('utf-8'), dept.encode('utf-8'), prov.encode('utf-8'), dist.encode('utf-8'), habiles])
+                    
+                    locales_writer.writerow([acta_number, code, locale.encode('utf-8'), dept.encode('utf-8'), prov.encode('utf-8'), dist.encode('utf-8'), habiles])
 
             except Exception as e:
                  print(e)
 
 
-def peru_2018():
-    # note: not used or working, just saving this for the record
-    with open('data2.csv', 'w',) as csvfile:
-        writer = csv.writer(csvfile)
-        writer.writerow(['acta_number', 'party', 'gov', 'consejero'])
+def peru_dump_votes(acta_range, destination_file, source_dir, election):
+    with open(destination_file, 'w') as csvfile:
+        votes_writer = csv.writer(csvfile)
+        if election == "president":
+            votes_writer.writerow(['acta_number', 'party', 'presidente'])
+        elif election == "regional":
+            votes_writer.writerow(['acta_number', 'party', 'gobernador', 'consejero'])
 
-        for i in reversed(range(1, 900997)):
+        for i in acta_range:
+            acta_number = str(i).zfill(6)
             try: 
-                acta_number = str(i).zfill(6)
-                with open(source_dir+"/"+acta_number+".json", 'r') as f:
-                    results = json.loads(f.read())
-                    for obj in results["procesos"]["regional"]["votos"]:
+                with open(source_dir+"//"+acta_number+".json", 'r') as f:
+                    base_obj = json.loads(f.read())
+                    if election == "president":
+                        votos_arr = base_obj["procesos"]["generalPre"]["votos"]
+                    elif election == "regional":
+                        votos_arr = base_obj["procesos"]["regional"]["votos"]
+
+                    for obj in votos_arr:
                         party = obj["AUTORIDAD"]
-                        gov = obj["Gobernador"]
-                        consejero = obj["Consejero"]     
-                        writer.writerow([acta_number, party, gov, consejero])
-
-                        print(party)
-                        print(gov)
-                        print(consejero)
-
-            except:
-                 continue
+                        if election == "president":
+                            pres = obj["congresal"]
+                            votes_writer.writerow([acta_number, party, pres])
+                        elif election == "regional":
+                            gob = obj["Gobernador"]
+                            cons = obj["Consejero"]
+                            votes_writer.writerow([acta_number, party, gob, cons])
+                        
+            except Exception as e:
+                 print(e)
