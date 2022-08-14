@@ -57,6 +57,10 @@ if __name__ == "__main__":
     parser.add_argument("job", type=str,
                         help="name of the job to run")
     args = parser.parse_args()
+    if args.job == "cleanup":
+        utils.cleanup(f"{data_dir}/peru_regional_and_municipal_2018")
+        utils.cleanup(f"{data_dir}/peru_second_presidential_2021")
+        exit()
     if args.job == "peru_regional_and_municipal_2018":
         job = PeruElectionResultsScraper(
             name = args.job,

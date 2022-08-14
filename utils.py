@@ -7,6 +7,50 @@ from selenium.webdriver.common.keys import Keys
 import time
 import os
 
+def cleanup(folder, delete_invalid=True):
+    # check for broken spans
+    acta_range = range(100000)
+    most_recent_found = -1
+    for i in acta_range:
+        json_filename = f"{folder}/{str(i).zfill(6)}.json"
+        if os.path.exists(json_filename):
+            if most_recent_found != i-1:
+                print(f"missing json span {folder}: {most_recent_found+1} - {i}")
+            most_recent_found = i
+    print(f"missing json span {folder}: {most_recent_found+1} - {i}")
+
+
+    most_recent_found = -1
+    for i in acta_range:
+        pdf_filename = f"{folder}/{str(i).zfill(6)}.pdf"
+        if os.path.exists(pdf_filename):
+            if most_recent_found != i-1:
+                print(f"missing pdf span {folder}: {most_recent_found+1} - {i}")
+            most_recent_found = i
+    print(f"missing pdf span {folder}: {most_recent_found+1} - {i}")
+    
+        
+    # check for invalid files
+    for i, f in enumerate(os.listdir(folder)):
+        if f.endswith(".json"):
+            with open(f"{folder}/{f}", 'r') as jsonfile:
+                data = jsonfile.read()
+            try:
+                json.loads(data)
+            except:
+                print(f"{folder}/{f} not json. deleting")
+                if delete_invalid:
+                    os.remove(f"{folder}/{f}")
+                    
+        elif f.endswith(".pdf"):
+            with open(f"{folder}/{f}", 'rb') as pdffile:
+                data = pdffile.read()
+            if not data.startswith(b"%PDF"):
+                print(f"{folder}/{f} not a pdf")
+                if delete_invalid:
+                    os.remove(f"{folder}/{f}")
+                
+
 
 def peru_pull_pdfs(url, acta_range, destination_folder, overwrite=False):
     # driver = webdriver.Chrome()
@@ -15,14 +59,13 @@ def peru_pull_pdfs(url, acta_range, destination_folder, overwrite=False):
 
     for i in acta_range:
         acta_number = str(i).zfill(6)
-        print("pulling pdf", acta_number)
         outfile = destination_folder+"/"+acta_number+".pdf"
         if not overwrite and os.path.exists(outfile):
             continue
+        print("pulling pdf", acta_number)
         try:
-            print ("getting pdf for acta number:", i)
+            print ("getting pdf for acta number:", acta_number)
             driver.get(url)
-            print (acta_number)
 
             elem = driver.find_element_by_xpath("/html/body/onpe-root/onpe-layout-container/onpe-onpe-actas-nume/form/div/div[2]/div/div/div/form/div/input")
             elem.send_keys(acta_number)
@@ -44,10 +87,10 @@ def peru_pull_pdfs(url, acta_range, destination_folder, overwrite=False):
 def peru_pull_json(url, acta_range, destination_folder, overwrite=False, website_version="2021"):
     for acta_number in acta_range:
         acta_number = str(acta_number).zfill(6)
-        print("pulling json", acta_number)
         outfile = f"{destination_folder}/{acta_number}.json"
         if not overwrite and os.path.exists(outfile):
             continue
+        print("pulling json", acta_number)
         try:
             if website_version == "2021":
                 json_url = url+"/"+acta_number+".json"
@@ -87,7 +130,7 @@ def peru_dump_locales(acta_range, destination_file, source_dir, election):
                     locales_writer.writerow([acta_number, code, locale.encode('utf-8'), dept.encode('utf-8'), prov.encode('utf-8'), dist.encode('utf-8'), habiles])
 
             except Exception as e:
-                 print(e)
+                 print(f"exception dumping locales for acta {i}: {e}")
 
 
 def peru_dump_votes(acta_range, destination_file, source_dir, election):
@@ -119,4 +162,5 @@ def peru_dump_votes(acta_range, destination_file, source_dir, election):
                             votes_writer.writerow([acta_number, party, gob, cons])
                         
             except Exception as e:
-                 print(e)
+                 print(f"exception dumping votes for acta {i}: {e}")
+
